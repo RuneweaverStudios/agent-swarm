@@ -4,39 +4,43 @@ Austin's intelligent model routing skill for OpenClaw. Routes tasks to the right
 
 ## Requirements
 
-- **OpenRouter** — All model delegation (default, orchestrator, and sub-agents) uses OpenRouter. Configure OpenClaw with an OpenRouter API key so that every router-recommended model uses a single OpenRouter auth profile. Model IDs use the `openrouter/...` prefix (e.g. `openrouter/z-ai/glm-4.7-flash`). Without OpenRouter you may see "No API key found for provider \"zai\"".
+- **OpenRouter** — All model delegation uses OpenRouter (`openrouter/...` prefix). Configure OpenClaw with an OpenRouter API key so one auth profile covers every model.
 
 ## Default behavior
 
-**Session default / orchestrator:** GLM 4.7 Flash (z-ai/glm-4.7-flash via OpenRouter) — faster than full GLM 4.7.
+**Session default / orchestrator:** Gemini 2.5 Flash (`openrouter/google/gemini-2.5-flash`) — fast, cheap, reliable at tool-calling.
 
-The router **down-routes** to cheaper/faster models (e.g. Gemini 2.5 Flash) for simple tasks (FAST tier). When the skill is installed, OpenClaw's default model is GLM 4.7 for new sessions and the main agent.
+The router delegates tasks to tier-specific sub-agents (Kimi for creative, DeepSeek for code, etc.) via `sessions_spawn`. Simple tasks (check, status, list) down-route to Gemini 2.5 Flash.
 
 ---
 
 ## Orchestrator flow (task delegation)
 
-The **main agent (GLM 4.7 Flash)** does not do user tasks itself. For every user **task** (code, research, check, build, etc.):
+The **main agent (Gemini 2.5 Flash)** does not do user tasks itself. For every user **task** (code, research, write, build, etc.):
 
-1. Run the router: `python scripts/router.py spawn --json "<user message>"` and parse the JSON output.
-2. Call **sessions_spawn** with the `task` and `model` (and any other params) from the router.
-3. The sub-agent does the work; you forward or summarize its result.
+1. Run the router: `python scripts/router.py spawn --json "<user message>"` and parse the JSON.
+2. Call **sessions_spawn** with the `task` and `model` from the router output (use the exact `model` value).
+3. Forward the sub-agent's result to the user.
 
-**Exception:** Meta-questions ("what model are you?", "how does routing work?") you answer yourself. See the skill's SKILL.md for full steps.
+**Example:**
+```
+router: {"task":"write a poem","model":"openrouter/moonshotai/kimi-k2.5","sessionTarget":"isolated"}
+→ sessions_spawn(task="write a poem", model="openrouter/moonshotai/kimi-k2.5", sessionTarget="isolated")
+→ Forward Kimi k2.5's poem to user. Say "Using: Kimi k2.5".
+```
+
+**Exception:** Meta-questions ("what model are you?") you answer yourself.
 
 ---
 
 ## Quick start
 
 ```bash
-# Install (from skill directory or via clawhub)
 npm install -g clawhub
 clawhub install friday-router
 
-# Show session default model
+python scripts/gateway_guard.py status --json
 python scripts/router.py default
-
-# Classify a task
 python scripts/router.py classify "your task description"
 ```
 
@@ -44,11 +48,11 @@ python scripts/router.py classify "your task description"
 
 ## Features
 
-- **Default / orchestrator** — GLM 4.7 Flash for new sessions and main agent; simple tasks down-route to Gemini 2.5 Flash
-- Fixed scoring bugs from original intelligent-router (simple indicators, agentic bump, vision priority, code keywords, confidence)
+- **Orchestrator** — Gemini 2.5 Flash delegates to tier-specific sub-agents via `sessions_spawn`
+- Fixed scoring bugs from original intelligent-router
 - 7 tiers: FAST, REASONING, CREATIVE, RESEARCH, CODE, QUALITY, VISION
-- OpenClaw integration: main agent delegates via `spawn --json` + **sessions_spawn**; router provides model + task params
-- Config-driven: `config.json` for models and routing rules; `default_model` for session default
+- All models via OpenRouter (single API key)
+- Config-driven: `config.json` for models and routing rules
 
 ---
 
@@ -56,44 +60,32 @@ python scripts/router.py classify "your task description"
 
 | Tier | Model | Cost/M (in/out) |
 |------|-------|-----------------|
-| **Default** | OpenRouter Claude Sonnet 4 | $3 / $15 |
-| FAST | Gemini 2.5 Flash (OpenRouter) | $0.30 / $2.50 |
+| **Default / orchestrator** | Gemini 2.5 Flash | $0.30 / $2.50 |
+| FAST | Gemini 2.5 Flash | $0.30 / $2.50 |
 | REASONING | GLM-5 | $0.10 / $0.10 |
 | CREATIVE | Kimi k2.5 | $0.20 / $0.20 |
 | RESEARCH | Grok Fast | $0.10 / $0.10 |
 | CODE | DeepSeek Coder V2 | $0.14 / $0.28 |
-| QUALITY | OpenRouter Claude Sonnet 4 | $3.00 / $15.00 |
+| QUALITY | GLM 4.7 Flash | $0.06 / $0.40 |
 | VISION | GPT-4o | $2.50 / $10.00 |
 
-**Fallbacks:** FAST → Gemini 1.5 Flash, Haiku; QUALITY → Claude 3.5 Sonnet, GPT-4o; CODE → Qwen 2.5 Coder; REASONING → Minimax 2.5.
+**Fallbacks:** FAST → Gemini 1.5 Flash, Haiku; QUALITY → GLM 4.7, Sonnet 4, GPT-4o; CODE → Qwen 2.5 Coder; REASONING → Minimax 2.5.
 
 ---
 
 ## CLI usage
 
-Run from the skill directory (e.g. `workspace/skills/friday-router` or `friday-router`):
-
 ```bash
-# Session default model (capable by default)
-python scripts/router.py default
-
-# Classify a task and get recommended model
-python scripts/router.py classify "fix lint errors in utils.js"
-
-# Detailed scoring breakdown
-python scripts/router.py score "build a React auth system"
-
-# Cost estimate
-python scripts/router.py cost "design a landing page"
-
-# OpenClaw spawn params (human-readable)
-python scripts/router.py spawn "research the best LLMs"
-
-# Spawn params as JSON (includes gatewayToken/gatewayPort from openclaw.json; parse and pass to sessions_spawn)
-python scripts/router.py spawn --json "research the best LLMs"
-
-# List all configured models
-python scripts/router.py models
+python scripts/gateway_guard.py status --json              # Check gateway auth consistency
+python scripts/gateway_guard.py ensure --apply --json      # Auto-fix mismatch by restarting gateway
+# For automatic gateway recovery (every 10s), install the gateway-watchdog skill and run its install_watchdog.sh
+python scripts/router.py default                          # Show default model
+python scripts/router.py classify "fix lint errors"        # Classify → tier + model
+python scripts/router.py score "build a React auth system" # Detailed scoring
+python scripts/router.py cost "design a landing page"      # Cost estimate
+python scripts/router.py spawn "research best LLMs"        # Spawn params (human)
+python scripts/router.py spawn --json "research best LLMs" # JSON includes gatewayAuthMode + token/password + port
+python scripts/router.py models                            # List all models
 ```
 
 ---
@@ -105,24 +97,11 @@ from scripts.router import FridayRouter
 
 router = FridayRouter()
 
-# Session default model (e.g. for display or config)
-default = router.get_default_model()  # → model dict or None
-
-# Classify task → tier string
-tier = router.classify_task("check server status")
-# → "FAST"
-
-# Full recommendation (tier, model, fallback, reasoning)
-result = router.recommend_model("build authentication system")
-# → {"tier": "CODE", "model": {...}, "fallback": {...}, "reasoning": "..."}
-
-# Spawn params for OpenClaw sub-agent
-spawn_params = router.spawn_agent("fix this bug", label="bugfix")
-# → {"params": {"task": "...", "model": "deepseek-ai/deepseek-coder-v2", "sessionTarget": "isolated", "label": "bugfix"}, "recommendation": {...}}
-
-# Cost estimate
-cost = router.estimate_cost("design landing page")
-# → {"tier": "CREATIVE", "model": "Kimi-k2.5", "cost": 0.0007, "currency": "USD"}
+default = router.get_default_model()
+tier = router.classify_task("check server status")        # → "FAST"
+result = router.recommend_model("build auth system")       # → {tier, model, fallback, reasoning}
+spawn = router.spawn_agent("fix this bug", label="bugfix") # → {params: {task, model, sessionTarget}}
+cost = router.estimate_cost("design landing page")         # → {tier, model, cost, currency}
 ```
 
 ---
@@ -140,53 +119,14 @@ cost = router.estimate_cost("design landing page")
 | **VISION** | image, picture, photo, screenshot, visual |
 
 - **Vision** has priority: if vision keywords are present, task is VISION regardless of other keywords.
-- **Agentic** tasks (multi-step, e.g. "first X then Y", "step 1") are bumped to at least CODE.
-
----
-
-## Examples
-
-```bash
-# Simple monitoring → FAST (Gemini 2.5 Flash)
-python scripts/router.py classify "check server status"
-
-# Code task → CODE (DeepSeek Coder)
-python scripts/router.py classify "fix lint errors in utils.js"
-
-# Multi-step build → CODE (agentic)
-python scripts/router.py classify "build React auth with JWT, tests, CI"
-
-# Mathematical proof → REASONING (GLM-5)
-python scripts/router.py classify "prove sqrt(2) is irrational"
-
-# Design → CREATIVE (Kimi k2.5)
-python scripts/router.py classify "design a beautiful landing page"
-
-# Research → RESEARCH (Grok Fast)
-python scripts/router.py classify "find information about GPT-5"
-
-# Vision → VISION (GPT-4o)
-python scripts/router.py classify "analyze this screenshot"
-```
+- **Agentic** tasks (multi-step) are bumped to at least CODE.
 
 ---
 
 ## Configuration
 
-- **`config.json`** — Model list and `routing_rules` per tier; **`default_model`** (e.g. `z-ai/glm-4.7-flash`) for session default and orchestrator.
-- Router loads `config.json` from the parent of `scripts/` (skill root). Use `FridayRouter(config_path="...")` to override.
-
----
-
-## What changed from original (intelligent-router)
-
-| Issue | Fix |
-|-------|-----|
-| Simple indicators inverted (high match = complex) | High simple keyword match → FAST tier |
-| Agentic tasks not bumping tier | Multi-step tasks bump to CODE |
-| Vision tasks misclassified | Vision keywords take priority |
-| Code keywords missed | Added React, JWT, API, etc. |
-| Confidence always low | Varies with keyword match strength |
+- **`config.json`** — Model list and `routing_rules` per tier; `default_model` (e.g. `openrouter/google/gemini-2.5-flash`) for session default and orchestrator.
+- Router loads `config.json` from the parent of `scripts/` (skill root).
 
 ---
 

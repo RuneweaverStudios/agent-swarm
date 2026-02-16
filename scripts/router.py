@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Friday Router - Austin's Intelligent Model Router
-Version 1.0.0
+Version 1.4.0
 
 Fixed bugs from original intelligent-router:
 - Simple indicators now properly invert (high match = SIMPLE, not complex)
@@ -33,8 +33,10 @@ except ImportError:
 
 def get_openclaw_gateway_config():
     """
-    Read gateway token and port from openclaw.json every time.
-    Returns dict with gatewayPort, gatewayToken (from gateway.auth.token) if present.
+    Read gateway auth and port from openclaw.json every time.
+    Returns dict with gatewayPort and auth secret:
+    - gatewayToken when gateway.auth.mode == "token"
+    - gatewayPassword when gateway.auth.mode == "password"
     """
     openclaw_home = os.environ.get('OPENCLAW_HOME') or os.path.expanduser('~/.openclaw')
     config_path = Path(openclaw_home) / 'openclaw.json'
@@ -47,11 +49,17 @@ def get_openclaw_gateway_config():
         return {}
     gateway = data.get('gateway') or {}
     auth = gateway.get('auth') or {}
-    token = auth.get('token') if auth.get('mode') == 'token' else None
+    auth_mode = auth.get('mode')
+    token = auth.get('token') if auth_mode == 'token' else None
+    password = auth.get('password') if auth_mode == 'password' else None
     port = gateway.get('port')
     out = {}
     if token:
         out['gatewayToken'] = token
+    if password:
+        out['gatewayPassword'] = password
+    if auth_mode in ('token', 'password'):
+        out['gatewayAuthMode'] = auth_mode
     if port is not None:
         out['gatewayPort'] = int(port)
     return out
@@ -218,7 +226,7 @@ class FridayRouter:
         return result
     
     def get_default_model(self):
-        """Return the default capable model (OpenRouter Claude Sonnet 4). Used for session default."""
+        """Return the default model (Gemini 2.5 Flash). Used for session default and orchestrator."""
         default_id = self.config.get('default_model')
         if not default_id:
             # Fallback: QUALITY tier primary
@@ -344,7 +352,7 @@ class FridayRouter:
 def main():
     """CLI entry point."""
     if len(sys.argv) < 2:
-        print("Friday Router v1.0.0")
+        print("Friday Router v1.4.0")
         print("\nUsage:")
         print("  router.py default                Show session default model (capable by default)")
         print("  router.py classify <task>       Classify task and recommend model")

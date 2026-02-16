@@ -1,107 +1,95 @@
 ---
 name: friday-router
 description: Austin's intelligent model router with fixed scoring, his preferred models, and OpenClaw integration
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Friday Router
 
 Austin's intelligent model routing skill with fixed bugs from the original intelligent-router and customized for his preferred models.
 
-**Requirements:** **OpenRouter** — All router model delegation (default, orchestrator, and sub-agents) goes through OpenRouter. Model IDs use the `openrouter/...` prefix. Configure OpenClaw with an OpenRouter API key so one auth profile is used for every tier.
+**Requirements:** **OpenRouter** — All model IDs use the `openrouter/...` prefix. Configure OpenClaw with an OpenRouter API key so one auth profile covers every tier.
 
-**Default model:** GLM 4.7 Flash (openrouter/z-ai/glm-4.7-flash via OpenRouter) — default and orchestrator; faster than full GLM 4.7. The router **down-routes** to cheaper/faster models (e.g. Gemini 2.5 Flash) for simple tasks (FAST tier).
+**Default / orchestrator model:** Gemini 2.5 Flash (`openrouter/google/gemini-2.5-flash`) — fast, cheap, reliable at tool-calling. The router delegates tasks to tier-specific sub-agents (Kimi for creative, DeepSeek for code, etc.).
 
 ## Orchestrator flow (mandatory for task requests)
 
-When you are the **main agent** (GLM 4.7 Flash) and the user gives you a **task** (something to do: code, research, check, build, fix, **write**, **create**, design, poem, story, etc.), you must **delegate** it. You do **not** perform the task yourself; a sub-agent does.
+When you are the **main agent** (Gemini 2.5 Flash) and the user gives you a **task** (code, research, write, create, design, poem, story, fix, build, etc.), you must **delegate** it. You do **not** perform the task yourself; a sub-agent does.
 
-**Steps (both required):**
+**Steps (all three required):**
 
 1. **Run the Friday Router** to get spawn params:
    ```bash
    python3 workspace/skills/friday-router/scripts/router.py spawn --json "<user message>"
    ```
-   The `--json` output is a single JSON object with `model`, `task`, `sessionTarget`, and optionally `label`.
+   Example output: `{"task":"write a poem about Mai","model":"openrouter/moonshotai/kimi-k2.5","sessionTarget":"isolated","gatewayAuthMode":"token","gatewayToken":"...","gatewayPort":18789}`
 
-2. **Call `sessions_spawn`** with the `task` and `model` (and any other params the tool accepts) from the router output. Use exactly the `model` value from the router—do not substitute a different model. The sub-agent will run with that model (e.g. Kimi k2.5 for CREATIVE) and do the work.
+2. **Immediately call `sessions_spawn`** with the router's output. Use the **exact `model`** from the JSON. Example:
+   ```
+   sessions_spawn(task="write a poem about Mai", model="openrouter/moonshotai/kimi-k2.5", sessionTarget="isolated")
+   ```
+   Do **not** change the `model` value. If the router said `openrouter/moonshotai/kimi-k2.5`, pass exactly that.
 
-3. **Forward or summarize** the sub-agent's result to the user. You may briefly say you're delegating to the recommended model, then present the sub-agent's reply.
+3. **Forward the sub-agent's reply** to the user. That reply IS the task output. Say "Using: Kimi k2.5" (the model that actually ran). Never say "Using: Claude Sonnet 4" or any model that didn't run. **Output hygiene:** If the sub-agent result contains internal text ("A subagent task … completed", "Findings:", "Stats:", "sessionKey", "Summarize this naturally"), strip that block and show only the final user-facing content to the user.
 
-**Anti-pattern (forbidden):** Running the router, seeing e.g. "Kimi k2.5 recommended", and then doing the creative task yourself in the same turn. That bypasses the sub-agent: Kimi is never used and logs will show only the main model (e.g. GLM 4.7 Flash). Always call `sessions_spawn` after the router so the recommended model actually runs the task.
+**If `sessions_spawn` returns an error** (e.g. `device_token_mismatch`): tell the user delegation failed and suggest restarting the gateway (`openclaw gateway stop && openclaw gateway`). Do **not** do the task yourself.
 
-**Exception:** Meta-questions (e.g. "what model are you?", "how does routing work?") you answer yourself. Only delegate when the user is asking for work to be done.
+**Hard-stop rule:** If `sessions_spawn` fails or is skipped, return only the delegation error and next-step fix. Do not write the requested output directly.
 
-## What Changed from Original
+**No-classify execution rule:** For real user tasks, do not execute via `classify`. `classify` is diagnostics only. Execution must use `spawn --json` -> `sessions_spawn`.
 
-| Bug | Fix |
-|-----|-----|
-| Simple indicators inverted (high match = complex) | Now correctly: high simple keyword match = FAST tier |
-| Agentic tasks not bumping tier | Multi-step tasks now properly bump to CODE tier |
-| Vision tasks misclassified | Vision keywords now take priority over other classifications |
-| Code keywords not detected | Added React, JWT, API, and other common code terms |
-| Confidence always low | Now varies appropriately based on keyword match strength |
+**Label gate:** Only print `Using: <model>` after successful spawn. If no successful spawn, do not print a `Using:` label.
+
+**Output hygiene:** Never return internal orchestration metadata to the user (no session keys/IDs, transcript paths, runtime/token stats, or internal "summarize this" instructions). Forward only clean user-facing content.
+
+**Exception:** Meta-questions ("what model are you?", "how does routing work?") you answer yourself.
 
 ## Model Selection (Austin's Prefs)
 
-| Use Case | Primary | Fallback |
-|----------|---------|----------|
-| **Default (session / orchestrator)** | GLM 4.7 Flash (z-ai/glm-4.7-flash) | GLM 4.7, Claude Sonnet 4 |
-| **Fast/F cheap** | Gemini 2.5 Flash (OpenRouter) | Gemini 1.5 Flash, Haiku |
+| Use Case | Primary (OpenRouter) | Fallback |
+|----------|---------------------|----------|
+| **Default / orchestrator** | Gemini 2.5 Flash | — |
+| **Fast/cheap** | Gemini 2.5 Flash | Gemini 1.5 Flash, Haiku |
 | **Reasoning** | GLM-5 | Minimax 2.5 |
 | **Creative/Frontend** | Kimi k2.5 | — |
 | **Research** | Grok Fast | — |
 | **Code/Engineering** | DeepSeek-Coder-V2 | Qwen2.5-Coder |
-| **Quality/Complex** | GLM 4.7 Flash | GLM 4.7, Claude Sonnet 4, GPT-4o |
+| **Quality/Complex** | GLM 4.7 Flash | GLM 4.7, Sonnet 4, GPT-4o |
 | **Vision/Images** | GPT-4o | — |
 
-When the skill is installed, OpenClaw's **default model** is GLM 4.7 Flash so every new session and the orchestrator use it. The router recommends Gemini 2.5 Flash for simple tasks (check, status, list, etc.).
+All model IDs use `openrouter/` prefix (e.g. `openrouter/moonshotai/kimi-k2.5`).
 
 ## Usage
 
 ### CLI
 
 ```bash
-# Show session default model (capable by default)
-python scripts/router.py default
-
-# Classify a task
-python scripts/router.py classify "fix lint errors in utils.js"
-
-# Show detailed scoring
-python scripts/router.py score "build a React auth system"
-
-# Estimate cost
-python scripts/router.py cost "design a landing page"
-
-# Get OpenClaw spawn params (human-readable)
-python scripts/router.py spawn "research the best LLMs"
-
-# Get spawn params as JSON (for sessions_spawn: parse and pass model, task, etc.)
-python scripts/router.py spawn --json "research the best LLMs"
-
-# List all models
-python scripts/router.py models
+python scripts/gateway_guard.py status --json              # Check gateway auth consistency
+python scripts/gateway_guard.py ensure --apply --json      # Auto-fix gateway auth mismatch
+python scripts/router.py default                          # Show default model
+python scripts/router.py classify "fix lint errors"        # Classify → tier + model
+python scripts/router.py spawn --json "write a poem"       # JSON for sessions_spawn
+python scripts/router.py models                            # List all models
 ```
 
-### In Code
+### sessions_spawn examples
 
-```python
-from scripts.router import FridayRouter
+**Creative task (poem):**
+```
+router output: {"task":"write a poem","model":"openrouter/moonshotai/kimi-k2.5","sessionTarget":"isolated"}
+→ sessions_spawn(task="write a poem", model="openrouter/moonshotai/kimi-k2.5", sessionTarget="isolated")
+```
 
-router = FridayRouter()
+**Code task (bug fix):**
+```
+router output: {"task":"fix the login bug","model":"openrouter/deepseek/deepseek-v3.2","sessionTarget":"isolated"}
+→ sessions_spawn(task="fix the login bug", model="openrouter/deepseek/deepseek-v3.2", sessionTarget="isolated")
+```
 
-# Classify task
-tier = router.classify_task("check server status")
-# → "FAST"
-
-# Get model recommendation
-result = router.recommend_model("build authentication system")
-# → {tier: "CODE", model: {...}, fallback: {...}}
-
-# Spawn with correct model
-spawn_params = router.spawn_agent("fix this bug", label="bugfix")
-# → {params: {model: "deepseek-ai/deepseek-coder-v2", ...}}
+**Research task:**
+```
+router output: {"task":"research best LLMs","model":"openrouter/x-ai/grok-4.1-fast","sessionTarget":"isolated"}
+→ sessions_spawn(task="research best LLMs", model="openrouter/x-ai/grok-4.1-fast", sessionTarget="isolated")
 ```
 
 ## Tier Detection
@@ -114,34 +102,12 @@ spawn_params = router.spawn_agent("fix this bug", label="bugfix")
 - **QUALITY**: complex, architecture, design, system, comprehensive
 - **VISION**: image, picture, photo, screenshot, visual
 
-## Examples
+## What Changed from Original
 
-```bash
-# Simple monitoring → FAST
-python scripts/router.py classify "check server status"
-# → FAST (Gemini 2.5 Flash)
-
-# Code task → CODE
-python scripts/router.py classify "fix lint errors in utils.js"
-# → CODE (DeepSeek Coder)
-
-# Multi-step build → CODE (bumped from default)
-python scripts/router.py classify "build React auth with JWT, tests, CI"
-# → CODE (DeepSeek Coder) - agentic task detected
-
-# Mathematical proof → REASONING
-python scripts/router.py classify "prove sqrt(2) is irrational"
-# → REASONING (GLM-5)
-
-# Design task → CREATIVE
-python scripts/router.py classify "design a beautiful landing page"
-# → CREATIVE (Kimi k2.5)
-
-# Research → RESEARCH
-python scripts/router.py classify "find information about GPT-5"
-# → RESEARCH (Grok Fast)
-
-# Vision → VISION (priority over other keywords)
-python scripts/router.py classify "analyze this screenshot"
-# → VISION (GPT-4o)
-```
+| Bug | Fix |
+|-----|-----|
+| Simple indicators inverted (high match = complex) | Now correctly: high simple keyword match = FAST tier |
+| Agentic tasks not bumping tier | Multi-step tasks now properly bump to CODE tier |
+| Vision tasks misclassified | Vision keywords now take priority over other classifications |
+| Code keywords not detected | Added React, JWT, API, and other common code terms |
+| Confidence always low | Now varies appropriately based on keyword match strength |
