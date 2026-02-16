@@ -325,11 +325,17 @@ def main():
         print("  router.py score <task>          Show detailed scoring")
         print("  router.py cost <task>           Estimate cost")
         print("  router.py models               List all models")
-        print("  router.py spawn <task>          Show spawn params for OpenClaw")
+        print("  router.py spawn [--json] <task>  Show spawn params for OpenClaw (--json for machine-readable)")
         sys.exit(1)
     
     command = sys.argv[1]
     router = FridayRouter()
+    
+    # Parse --json for spawn command
+    output_json = False
+    if command == 'spawn' and len(sys.argv) > 2 and sys.argv[2] == '--json':
+        output_json = True
+        sys.argv.pop(2)  # remove --json so task = ' '.join(sys.argv[2:])
     
     if command == 'default':
         m = router.get_default_model()
@@ -397,15 +403,23 @@ def main():
     
     elif command == 'spawn':
         task = ' '.join(sys.argv[2:])
+        if not task:
+            print("❌ Error: spawn requires a task string", file=sys.stderr)
+            sys.exit(1)
         result = router.spawn_agent(task)
         
-        print(f"📋 Task: {task}")
-        print(f"\n🚀 OpenClaw Spawn Params:")
-        print(f"   model: {result['params']['model']}")
-        print(f"   sessionTarget: {result['params']['sessionTarget']}")
-        print(f"\n📦 Full recommendation:")
-        print(f"   Tier: {result['recommendation']['tier']}")
-        print(f"   Model: {result['recommendation']['model']['alias']}")
+        if output_json:
+            # Machine-readable: single JSON object for sessions_spawn
+            out = {k: v for k, v in result['params'].items()}
+            print(json.dumps(out))
+        else:
+            print(f"📋 Task: {task}")
+            print(f"\n🚀 OpenClaw Spawn Params:")
+            print(f"   model: {result['params']['model']}")
+            print(f"   sessionTarget: {result['params']['sessionTarget']}")
+            print(f"\n📦 Full recommendation:")
+            print(f"   Tier: {result['recommendation']['tier']}")
+            print(f"   Model: {result['recommendation']['model']['alias']}")
     
     else:
         print(f"Unknown command: {command}")

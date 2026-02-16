@@ -10,6 +10,18 @@ The router **down-routes** to cheaper/faster models (e.g. Gemini 2.5 Flash) only
 
 ---
 
+## Orchestrator flow (task delegation)
+
+The **main agent (Sonnet)** does not do user tasks itself. For every user **task** (code, research, check, build, etc.):
+
+1. Run the router: `python scripts/router.py spawn --json "<user message>"` and parse the JSON output.
+2. Call **sessions_spawn** with the `task` and `model` (and any other params) from the router.
+3. The sub-agent does the work; you forward or summarize its result.
+
+**Exception:** Meta-questions ("what model are you?", "how does routing work?") you answer yourself. See the skill's SKILL.md for full steps.
+
+---
+
 ## Quick start
 
 ```bash
@@ -31,7 +43,7 @@ python scripts/router.py classify "your task description"
 - **Capable by default** — OpenRouter Claude Sonnet 4 for new sessions; simple tasks down-route to Gemini 2.5 Flash
 - Fixed scoring bugs from original intelligent-router (simple indicators, agentic bump, vision priority, code keywords, confidence)
 - 7 tiers: FAST, REASONING, CREATIVE, RESEARCH, CODE, QUALITY, VISION
-- OpenClaw integration: spawn sub-agents with the right model via `spawn_agent()`
+- OpenClaw integration: main agent delegates via `spawn --json` + **sessions_spawn**; router provides model + task params
 - Config-driven: `config.json` for models and routing rules; `default_model` for session default
 
 ---
@@ -70,8 +82,11 @@ python scripts/router.py score "build a React auth system"
 # Cost estimate
 python scripts/router.py cost "design a landing page"
 
-# OpenClaw spawn params (for sub-agents)
+# OpenClaw spawn params (human-readable)
 python scripts/router.py spawn "research the best LLMs"
+
+# Spawn params as JSON (for sessions_spawn: parse and pass to tool)
+python scripts/router.py spawn --json "research the best LLMs"
 
 # List all configured models
 python scripts/router.py models

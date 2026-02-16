@@ -1,7 +1,7 @@
 ---
 name: friday-router
 description: Austin's intelligent model router with fixed scoring, his preferred models, and OpenClaw integration
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Friday Router
@@ -9,6 +9,26 @@ version: 1.1.0
 Austin's intelligent model routing skill with fixed bugs from the original intelligent-router and customized for his preferred models.
 
 **Default model:** OpenRouter Claude Sonnet 4 — capable of basic coding and complex tasks. The router **down-routes** to cheaper/faster models (e.g. Gemini 2.5 Flash) only when the task is clearly simple (FAST tier). So you start capable by default; simple tasks save cost.
+
+## Orchestrator flow (mandatory for task requests)
+
+When you are the **main agent** (Sonnet) and the user gives you a **task** (something to do: code, research, check, build, fix, etc.), you must **delegate** it. You do not perform the task yourself; a sub-agent does.
+
+**Steps:**
+
+1. **Run the Friday Router** with the user's message to get the recommended model and spawn params. Use:
+   ```bash
+   python3 <skill_dir>/scripts/router.py spawn --json "<user message>"
+   ```
+   Resolve `<skill_dir>` to the friday-router skill directory (e.g. `workspace/skills/friday-router`). The `--json` output is a single JSON object with `model`, `task`, `sessionTarget`, and optionally `label`.
+
+2. **Call `sessions_spawn`** with the `task` and `model` (and any other params the tool accepts) from the router output. Do not invent a model; use exactly the `model` value from the router.
+
+3. **Do not do the task yourself.** The sub-agent runs with the router-chosen model and does the work.
+
+4. **Forward or summarize** the sub-agent's result to the user. You may briefly say you're delegating to the recommended model, then present the sub-agent's reply.
+
+**Exception:** Meta-questions (e.g. "what model are you?", "how does routing work?") you answer yourself. Only delegate when the user is asking for work to be done.
 
 ## What Changed from Original
 
@@ -52,8 +72,11 @@ python scripts/router.py score "build a React auth system"
 # Estimate cost
 python scripts/router.py cost "design a landing page"
 
-# Get OpenClaw spawn params
+# Get OpenClaw spawn params (human-readable)
 python scripts/router.py spawn "research the best LLMs"
+
+# Get spawn params as JSON (for sessions_spawn: parse and pass model, task, etc.)
+python scripts/router.py spawn --json "research the best LLMs"
 
 # List all models
 python scripts/router.py models
