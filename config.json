@@ -83,17 +83,6 @@
       "use_for": ["research", "web lookups", "fact-finding"]
     },
     {
-      "id": "openrouter/deepseek/deepseek-v3.2",
-      "alias": "DeepSeek-Coder",
-      "tier": "CODE",
-      "provider": "openrouter",
-      "input_cost_per_m": 0.14,
-      "output_cost_per_m": 0.28,
-      "context_window": 65536,
-      "capabilities": ["text", "code"],
-      "use_for": ["code generation", "debugging", "refactoring"]
-    },
-    {
       "id": "openrouter/qwen/qwen3-coder-flash",
       "alias": "Qwen-Coder",
       "tier": "CODE",
@@ -182,7 +171,7 @@
       "keywords": ["research", "find", "search", "lookup", "web", "information", "fact", "review"]
     },
     "CODE": {
-      "primary": "openrouter/deepseek/deepseek-v3.2",
+      "primary": "openrouter/minimax/minimax-m2.5",
       "fallback": ["openrouter/qwen/qwen3-coder-flash"],
       "keywords": ["code", "function", "class", "debug", "fix", "implement", "refactor", "lint", "test"]
     },
