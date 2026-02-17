@@ -5,17 +5,18 @@
 > Agent Swarm only supports `openrouter/...` models and requires a configured OpenRouter API key in OpenClaw.
 > Without OpenRouter, subagent delegation and `sessions_spawn` routing will fail.
 
-**LLM routing and subagent delegation.** Routes each task to the right model, spawns subagents, and saves tokens. **Parallel tasks:** one message can spawn multiple subagents at once (e.g. "fix the bug and write a poem" → code + creative in parallel).
+**LLM routing and subagent delegation.** Routes each task to the right model, spawns subagents, and reduces API costs by using cheaper models for simple tasks. **Parallel tasks:** one message can spawn multiple subagents at once (e.g. "fix the bug and write a poem" → code + creative in parallel).
 
 **v1.7.0 — This version is tested and working.** COMPLEX tier, absolute paths for TUI delegation. **Security-focused release:** Removed gateway auth secret exposure and gateway management functionality for improved security rating. **Source:** [github.com/RuneweaverStudios/agent-swarm](https://github.com/RuneweaverStudios/agent-swarm).
 
-Agent Swarm | OpenClaw Skill routes your OpenClaw tasks to the best LLM for the job and delegates work to subagents. You save tokens (orchestrator stays on a cheap model; only the task runs on the matched model) and get better results—GLM 4.7 for code, Kimi k2.5 for creative, Grok Fast for research.
+Agent Swarm | OpenClaw Skill routes your OpenClaw tasks to the best LLM for the job and delegates work to subagents. You save API costs (orchestrator stays on a cheap model; only the task runs on the matched model) and get better results—GLM 4.7 for code, Kimi k2.5 for creative, Grok Fast for research.
 
 **Security improvements in v1.7.0+:** 
 - Removed gateway auth token/password exposure from router output
 - Gateway management functionality has been removed - use the separate [gateway-guard](https://clawhub.ai/skills/gateway-guard) skill if gateway auth management is needed
 - FACEPALM troubleshooting integration has been removed - use the separate [FACEPALM](https://github.com/RuneweaverStudios/FACEPALM) skill if troubleshooting is needed
-- **v1.7.2+**: Added comprehensive input validation, config patch validation, and security documentation
+- **v1.7.3+**: Added comprehensive input validation, config patch validation, and security documentation
+- **v1.7.4+**: Clarified "saves tokens" means cost savings (not token storage), removed hard-coded paths, documented file access scope
 
 ## Why Agent Swarm
 
@@ -69,6 +70,17 @@ Task strings are passed to `sessions_spawn` and then to sub-agents. While the ro
 1. The orchestrator (validating task strings)
 2. The sub-agent LLM (resisting prompt injection)
 3. The OpenClaw platform (sanitizing `sessions_spawn` inputs)
+
+### File Access Scope
+
+The router reads `openclaw.json` **only** to inspect `tools.exec.host` and `tools.exec.node` configuration. This is necessary to determine the execution environment for spawned sub-agents.
+
+**Important:**
+- The router **does not** read gateway secrets, API keys, or any other sensitive configuration
+- Only `tools.exec.host` and `tools.exec.node` are accessed
+- No data is written to `openclaw.json` except via validated config patches (whitelisted to `tools.exec.*` only)
+- The router does not persist, upload, or transmit any tokens or credentials
+- The phrase "saves tokens" in documentation refers to **API cost savings** (using cheaper models for simple tasks), not token storage or collection
 
 ## Default behavior
 
@@ -209,6 +221,18 @@ cost = router.estimate_cost("design landing page")         # → {tier, model, c
 ---
 
 ## Changelog
+
+### v1.7.4 (Security clarification)
+
+**Documentation improvements:**
+- Clarified "saves tokens" phrase to explicitly mean API cost savings (not token storage)
+- Replaced hard-coded absolute paths (`/Users/ghost/...`) with relative paths in examples
+- Added explicit documentation about file access scope (only `tools.exec.*` from `openclaw.json`)
+- Clarified that router does not persist, upload, or transmit tokens or credentials
+
+**Technical changes:**
+- Updated config.json description to remove ambiguous "saves tokens" phrase
+- Updated SKILL.md examples to use relative paths with `OPENCLAW_HOME` guidance
 
 ### v1.7.3 (Security hardening)
 

@@ -2,7 +2,7 @@
 name: agent-swarm
 displayName: Agent Swarm | OpenClaw Skill
 description: "IMPORTANT: OpenRouter is required. Routes tasks to the right model and always delegates work through sessions_spawn."
-version: 1.7.3
+version: 1.7.4
 ---
 
 # Agent Swarm | OpenClaw Skill
@@ -33,8 +33,10 @@ Use this flow every time:
 
 1. Run router:
    ```bash
-   python3 /Users/ghost/.openclaw/workspace/skills/agent-swarm/scripts/router.py spawn --json "<user message>"
+   python3 workspace/skills/agent-swarm/scripts/router.py spawn --json "<user message>"
    ```
+   
+   **Note:** Use relative paths from your OpenClaw workspace root, or set `OPENCLAW_HOME` environment variable and use `$OPENCLAW_HOME/workspace/skills/agent-swarm/scripts/router.py`.
 2. If `needs_config_patch` is true: stop and report that patch to the user.
 3. Otherwise call:
    `sessions_spawn(task=..., model=..., sessionTarget=...)`
@@ -57,7 +59,7 @@ Then call:
 ### Parallel tasks
 
 ```bash
-python3 /Users/ghost/.openclaw/workspace/skills/agent-swarm/scripts/router.py spawn --json --multi "fix bug and write poem"
+python3 workspace/skills/agent-swarm/scripts/router.py spawn --json --multi "fix bug and write poem"
 ```
 
 This returns multiple spawn configs. Start one sub-agent per config.
@@ -125,8 +127,19 @@ Task strings are passed to `sessions_spawn` and then to sub-agents. While the ro
 2. The sub-agent LLM (resisting prompt injection)
 3. The OpenClaw platform (sanitizing `sessions_spawn` inputs)
 
+### File Access
+
+The router reads `openclaw.json` (from `OPENCLAW_HOME` or `~/.openclaw/openclaw.json`) **only** to inspect `tools.exec.host` and `tools.exec.node` configuration. This is necessary to determine the execution environment for spawned sub-agents.
+
+**Important:**
+- The router **does not** read gateway secrets, API keys, or any other sensitive configuration
+- Only `tools.exec.host` and `tools.exec.node` are accessed
+- No data is written to `openclaw.json` except via validated config patches (whitelisted to `tools.exec.*` only)
+- The router does not persist, upload, or transmit any tokens or credentials
+
 ### Other Security Notes
 
 - This skill does not expose gateway secrets.
 - Use `gateway-guard` separately for gateway/auth management.
 - The router does not execute arbitrary code or modify files outside of config patches.
+- The phrase "saves tokens" in documentation refers to **cost savings** (using cheaper models for simple tasks), not token storage or collection.
