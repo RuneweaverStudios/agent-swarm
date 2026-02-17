@@ -1,5 +1,10 @@
 # Agent Swarm | OpenClaw Skill
 
+> IMPORTANT: OPENROUTER IS REQUIRED
+>
+> Agent Swarm only supports `openrouter/...` models and requires a configured OpenRouter API key in OpenClaw.
+> Without OpenRouter, subagent delegation and `sessions_spawn` routing will fail.
+
 **LLM routing and subagent delegation.** Routes each task to the right model, spawns subagents, and saves tokens. **Parallel tasks:** one message can spawn multiple subagents at once (e.g. "fix the bug and write a poem" → code + creative in parallel).
 
 **v1.7.0 — This version is tested and working.** COMPLEX tier, absolute paths for TUI delegation. **Security-focused release:** Removed gateway auth secret exposure and gateway management functionality for improved security rating. **Source:** [github.com/RuneweaverStudios/agent-swarm](https://github.com/RuneweaverStudios/agent-swarm).
@@ -12,9 +17,9 @@ Agent Swarm | OpenClaw Skill routes your OpenClaw tasks to the best LLM for the 
 
 With a single model, OpenClaw can feel slow: you're forced to choose between quality and cost, and every prompt pays the same price. Agent Swarm removes that tradeoff. The orchestrator stays on a fast, cheap model; only the task at hand runs on the best model for the job. No wasted prompts—efficient routing, not one-size-fits-all. With OpenRouter, replies come back faster and the conversation feels more lively and natural.
 
-## Requirements
+## Requirements (critical)
 
-- **OpenRouter** — All model delegation uses OpenRouter (`openrouter/...` prefix). Configure OpenClaw with an OpenRouter API key so one auth profile covers every model.
+- **OpenRouter is mandatory** — All model delegation uses OpenRouter (`openrouter/...` prefix). Configure OpenClaw with an OpenRouter API key so one auth profile covers every model.
 
 ## Default behavior
 
