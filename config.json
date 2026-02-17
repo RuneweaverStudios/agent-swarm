@@ -1,6 +1,6 @@
 {
-  "name": "OpenRouterRouter | Codename: Centipede",
-  "description": "Your AI's Smart Traffic Director: Precisely Matching Your OpenClaw Tasks to the Perfect LLM. Intelligent LLM orchestration—MiniMax 2.5 for code, Kimi k2.5 for creative, Grok Fast for research. Route with purpose.",
+  "name": "Agent Swarm | OpenClaw Skill",
+  "description": "LLM routing and subagent delegation for OpenClaw. Routes each task to the right model (code, creative, research), spawns subagents, and saves tokens.",
   "version": "1.5.0",
   "author": "Austin",
   "default_model": "openrouter/google/gemini-2.5-flash",

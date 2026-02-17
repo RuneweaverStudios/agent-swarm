@@ -1,17 +1,17 @@
 ---
 name: agent-swarm
-displayName: Agent Swarm
-description: Your AI's Smart Traffic Director—precisely matching OpenClaw tasks to the perfect LLM. Intelligent orchestration with OpenRouter. Security-focused: no gateway auth exposure.
+displayName: Agent Swarm | OpenClaw Skill
+description: LLM routing and subagent delegation for OpenClaw. Routes each task to the right model (code, creative, research) and spawns subagents so you save tokens and get better results.
 version: 1.7.0
 ---
 
-# Agent Swarm
+# Agent Swarm | OpenClaw Skill
 
-**Your AI's Smart Traffic Director: Precisely Matching Your OpenClaw Tasks to the Perfect LLM.**
+**LLM routing and subagent delegation.** Routes each task to the right model, spawns subagents, and saves tokens.
 
 **v1.7.0 — Security-focused release.** COMPLEX tier, absolute paths. Tested and working with OpenClaw TUI delegation. **Removed gateway auth secret exposure and gateway management for improved security.**
 
-IntentRouter analyzes your tasks and directs them to the best LLM—MiniMax 2.5 for code, Kimi k2.5 for creative, Grok Fast for research. Eliminate guesswork; route with purpose.
+Agent Swarm analyzes your tasks and directs them to the best LLM—MiniMax 2.5 for code, Kimi k2.5 for creative, Grok Fast for research. Eliminate guesswork; route with purpose.
 
 **Security improvements in v1.7.0:** Removed gateway auth token/password from router output. Gateway management removed - use [gateway-guard](https://clawhub.ai/skills/gateway-guard) skill separately. FACEPALM integration removed - use [FACEPALM](https://github.com/RuneweaverStudios/FACEPALM) skill separately.
 

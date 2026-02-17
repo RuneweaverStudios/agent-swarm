@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Agent Swarm router — OpenClaw task-to-LLM routing (IntentRouter)
+Agent Swarm | OpenClaw Skill — Task-to-LLM routing for OpenClaw
 Version 1.7.0
 
 Fixed bugs from original intelligent-router:
@@ -379,7 +379,7 @@ class FridayRouter:
 
 def main():
     """CLI entry point."""
-    parser = argparse.ArgumentParser(description="Agent Swarm Router - Task-to-LLM routing for OpenClaw.")
+    parser = argparse.ArgumentParser(description="Agent Swarm | OpenClaw Skill - Task-to-LLM routing for OpenClaw.")
     sub = parser.add_subparsers(dest="command", required=True)
 
     # Common args for classify, score, cost that require a task
