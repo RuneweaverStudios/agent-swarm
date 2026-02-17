@@ -7,6 +7,12 @@ version: 1.7.1
 
 # Agent Swarm | OpenClaw Skill
 
+## Description
+
+LLM routing and subagent delegation for OpenClaw. Routes each task to the right model (code, creative, research) and spawns subagents so you save tokens and get better results. Supports parallel tasks—one message can spawn multiple subagents at once (spawn --json --multi).
+
+# Agent Swarm | OpenClaw Skill
+
 **LLM routing and subagent delegation.** Routes each task to the right model, spawns subagents, and saves tokens. **Parallel tasks:** one message can spawn multiple subagents at once (e.g. "fix the bug and write a poem" → code + creative in parallel); use `spawn --json --multi "<message>"` to get an array of spawn params.
 
 **v1.7.1 — Delegation enforcement release.** COMPLEX tier, absolute paths. Tested and working with OpenClaw TUI delegation. **Removed gateway auth secret exposure and gateway management for improved security.**
@@ -25,81 +31,6 @@ Agent Swarm analyzes your tasks and directs them to the best LLM—GLM 4.7 for c
 
 **Default / orchestrator model:** Gemini 2.5 Flash (`openrouter/google/gemini-2.5-flash`) — fast, cheap, reliable at tool-calling. The router delegates tasks to tier-specific sub-agents (Kimi for creative, GLM 4.7 for code, etc.).
 
-## Orchestrator flow (mandatory for task requests)
-
-When you are the **main agent** (Gemini 2.5 Flash), you **classify** the user request by running the router; you do **not** perform the task yourself—a sub-agent does. For any **task** (code, research, write, create, design, poem, story, fix, build, etc.), you must **delegate**.
-
-**Steps (all three required):**
-
-1. **Run Agent Swarm router** to classify and get spawn params:
-   ```bash
-   python3 workspace/skills/agent-swarm/scripts/router.py spawn --json "<user message>"
-   ```
-   Example output: `{"task":"write a poem about Mai","model":"openrouter/moonshotai/kimi-k2.5","sessionTarget":"isolated"}`. The router may instead return `{"needs_config_patch":true,"message":"...","recommended_config_patch":"..."}` when exec host/node mismatch is detected.
-
-2. **Parse the JSON.** If `needs_config_patch` is true, do **not** call `sessions_spawn`. Report the `message` and `recommended_config_patch` to the user (e.g. "Exec config mismatch. Apply this patch or run gateway-guard.") and stop. Otherwise **immediately call `sessions_spawn`** with the router's output. Use the **exact `model`** from the JSON. Example:
-   ```
-   sessions_spawn(task="write a poem about Mai", model="openrouter/moonshotai/kimi-k2.5", sessionTarget="isolated")
-   ```
-   Do **not** change the `model` value. If the router said `openrouter/moonshotai/kimi-k2.5`, pass exactly that.
-
-3. **Forward the sub-agent's reply** to the user. That reply IS the task output. Say "Using: Kimi k2.5" (the model that actually ran). Never say "Using: Claude Sonnet 4" or any model that didn't run. **Output hygiene:** If the sub-agent result contains internal text ("A subagent task … completed", "Findings:", "Stats:", "sessionKey", "Summarize this naturally"), strip that block and show only the final user-facing content to the user.
-
-**If `sessions_spawn` returns an error** (e.g. `device_token_mismatch`): tell the user delegation failed and suggest checking gateway status or using the `gateway-guard` skill. Do **not** do the task yourself.
-
-**Hard-stop rule:** If `sessions_spawn` fails or is skipped, return only the delegation error and next-step fix. Do not write the requested output directly.
-
-**No-classify execution rule:** For real user tasks, do not execute via `classify`. `classify` is diagnostics only. Execution must use `spawn --json` -> `sessions_spawn`.
-
-**Label gate:** Only print `Using: <model>` after successful spawn. If no successful spawn, do not print a `Using:` label.
-
-**Output hygiene:** Never return internal orchestration metadata to the user (no session keys/IDs, transcript paths, runtime/token stats, or internal "summarize this" instructions). Forward only clean user-facing content.
-
-**Exception:** Meta-questions ("what model are you?", "how does routing work?") you answer yourself.
-
-## Delegation compliance gate (mandatory)
-
-Before sending any user-facing answer for a **task request**, run this mental gate:
-
-1. Did I run `router.py spawn --json` for this request?
-2. Did I call `sessions_spawn(...)` with the router's exact model?
-3. Did `sessions_spawn` return successfully in this same turn?
-
-If any answer is **No**, you must **not** answer the task. Return only a delegation failure + fix steps.
-
-**Forbidden behavior (explicit):**
-- Getting router recommendation and then replying with your own content.
-- Running `classify` and answering directly.
-- Skipping `sessions_spawn` because the task seems simple.
-
-This skill is invalid if task output is produced without a successful `sessions_spawn` result.
-
-**Security note:** This skill does NOT expose gateway auth secrets (tokens/passwords) in its output. Gateway management functionality has been removed. Use the separate `gateway-guard` skill if gateway auth management is needed.
-
-## Default agents (edit in config.json)
-
-To change which model runs for each tier, edit **`config.json`** in the skill root:
-
-- **Session default / orchestrator:** `default_model` (e.g. `openrouter/google/gemini-2.5-flash`)
-- **Per-tier primary:** `routing_rules.<TIER>.primary` (e.g. `routing_rules.CODE.primary`)
-- **Per-tier fallbacks:** `routing_rules.<TIER>.fallback` (array of model IDs)
-
-The router loads this file from the parent of `scripts/`; no code changes needed.
-
-## Model selection (from config)
-
-| Use Case | Primary (OpenRouter) | Fallback |
-|----------|---------------------|----------|
-| **Default / orchestrator** | Gemini 2.5 Flash | — |
-| **Fast/cheap** | Gemini 2.5 Flash | Gemini 1.5 Flash, Haiku |
-| **Reasoning** | GLM-5 | Minimax 2.5 |
-| **Creative/Frontend** | Kimi k2.5 | — |
-| **Research** | Grok Fast | — |
-| **Code/Engineering** | GLM 4.7 Flash | MiniMax 2.5, Qwen Coder |
-| **Quality/Complex** | GLM 4.7 Flash | GLM 4.7, Sonnet 4, GPT-4o |
-| **Vision/Images** | GPT-4o | — |
-
-All model IDs use `openrouter/` prefix (e.g. `openrouter/moonshotai/kimi-k2.5`).
 
 ## Usage
 
@@ -136,6 +67,97 @@ router output: {"task":"research best LLMs","model":"openrouter/x-ai/grok-4.1-fa
 → sessions_spawn(task="research best LLMs", model="openrouter/x-ai/grok-4.1-fast", sessionTarget="isolated")
 ```
 
+
+## Examples
+
+**Example: See the benefit**
+*Scenario:* User needs what agent-swarm provides (see description above).
+*Action:* Run the main command for this skill (see **Commands** below).
+*Outcome:* The skill delivers the described benefit—faster, clearer, or more reliable.
+
+Add concrete examples here: paste real command + short outcome to showcase benefits.
+
+
+## Orchestrator flow (mandatory for task requests)
+
+When you are the **main agent** (Gemini 2.5 Flash), you **classify** the user request by running the router; you do **not** perform the task yourself—a sub-agent does. For any **task** (code, research, write, create, design, poem, story, fix, build, etc.), you must **delegate**.
+
+**Steps (all three required):**
+
+1. **Run Agent Swarm router** to classify and get spawn params:
+   ```bash
+   python3 workspace/skills/agent-swarm/scripts/router.py spawn --json "<user message>"
+   ```
+   Example output: `{"task":"write a poem about Mai","model":"openrouter/moonshotai/kimi-k2.5","sessionTarget":"isolated"}`. The router may instead return `{"needs_config_patch":true,"message":"...","recommended_config_patch":"..."}` when exec host/node mismatch is detected.
+
+2. **Parse the JSON.** If `needs_config_patch` is true, do **not** call `sessions_spawn`. Report the `message` and `recommended_config_patch` to the user (e.g. "Exec config mismatch. Apply this patch or run gateway-guard.") and stop. Otherwise **immediately call `sessions_spawn`** with the router's output. Use the **exact `model`** from the JSON. Example:
+   ```
+   sessions_spawn(task="write a poem about Mai", model="openrouter/moonshotai/kimi-k2.5", sessionTarget="isolated")
+   ```
+   Do **not** change the `model` value. If the router said `openrouter/moonshotai/kimi-k2.5`, pass exactly that.
+
+3. **Forward the sub-agent's reply** to the user. That reply IS the task output. Say "Using: Kimi k2.5" (the model that actually ran). Never say "Using: Claude Sonnet 4" or any model that didn't run. **Output hygiene:** If the sub-agent result contains internal text ("A subagent task … completed", "Findings:", "Stats:", "sessionKey", "Summarize this naturally"), strip that block and show only the final user-facing content to the user.
+
+**If `sessions_spawn` returns an error** (e.g. `device_token_mismatch`): tell the user delegation failed and suggest checking gateway status or using the `gateway-guard` skill. Do **not** do the task yourself.
+
+**Hard-stop rule:** If `sessions_spawn` fails or is skipped, return only the delegation error and next-step fix. Do not write the requested output directly.
+
+**No-classify execution rule:** For real user tasks, do not execute via `classify`. `classify` is diagnostics only. Execution must use `spawn --json` -> `sessions_spawn`.
+
+**Label gate:** Only print `Using: <model>` after successful spawn. If no successful spawn, do not print a `Using:` label.
+
+**Output hygiene:** Never return internal orchestration metadata to the user (no session keys/IDs, transcript paths, runtime/token stats, or internal "summarize this" instructions). Forward only clean user-facing content.
+
+**Exception:** Meta-questions ("what model are you?", "how does routing work?") you answer yourself.
+
+
+## Delegation compliance gate (mandatory)
+
+Before sending any user-facing answer for a **task request**, run this mental gate:
+
+1. Did I run `router.py spawn --json` for this request?
+2. Did I call `sessions_spawn(...)` with the router's exact model?
+3. Did `sessions_spawn` return successfully in this same turn?
+
+If any answer is **No**, you must **not** answer the task. Return only a delegation failure + fix steps.
+
+**Forbidden behavior (explicit):**
+- Getting router recommendation and then replying with your own content.
+- Running `classify` and answering directly.
+- Skipping `sessions_spawn` because the task seems simple.
+
+This skill is invalid if task output is produced without a successful `sessions_spawn` result.
+
+**Security note:** This skill does NOT expose gateway auth secrets (tokens/passwords) in its output. Gateway management functionality has been removed. Use the separate `gateway-guard` skill if gateway auth management is needed.
+
+
+## Default agents (edit in config.json)
+
+To change which model runs for each tier, edit **`config.json`** in the skill root:
+
+- **Session default / orchestrator:** `default_model` (e.g. `openrouter/google/gemini-2.5-flash`)
+- **Per-tier primary:** `routing_rules.<TIER>.primary` (e.g. `routing_rules.CODE.primary`)
+- **Per-tier fallbacks:** `routing_rules.<TIER>.fallback` (array of model IDs)
+
+The router loads this file from the parent of `scripts/`; no code changes needed.
+
+
+## Model selection (from config)
+
+| Use Case | Primary (OpenRouter) | Fallback |
+|----------|---------------------|----------|
+| **Default / orchestrator** | Gemini 2.5 Flash | — |
+| **Fast/cheap** | Gemini 2.5 Flash | Gemini 1.5 Flash, Haiku |
+| **Reasoning** | GLM-5 | Minimax 2.5 |
+| **Creative/Frontend** | Kimi k2.5 | — |
+| **Research** | Grok Fast | — |
+| **Code/Engineering** | GLM 4.7 Flash | MiniMax 2.5, Qwen Coder |
+| **Quality/Complex** | GLM 4.7 Flash | GLM 4.7, Sonnet 4, GPT-4o |
+| **Vision/Images** | GPT-4o | — |
+
+All model IDs use `openrouter/` prefix (e.g. `openrouter/moonshotai/kimi-k2.5`).
+
+
 ## Tier Detection
 
 - **FAST**: check, get, list, show, status, monitor, fetch, simple
@@ -146,6 +168,7 @@ router output: {"task":"research best LLMs","model":"openrouter/x-ai/grok-4.1-fa
 - **QUALITY**: complex, architecture, design, system, comprehensive
 - **VISION**: image, picture, photo, screenshot, visual
 
+
 ## What Changed from Original
 
 | Bug | Fix |
@@ -155,4 +178,3 @@ router output: {"task":"research best LLMs","model":"openrouter/x-ai/grok-4.1-fa
 | Vision tasks misclassified | Vision keywords now take priority over other classifications |
 | Code keywords not detected | Added React, JWT, API, and other common code terms |
 | Confidence always low | Now varies appropriately based on keyword match strength |
-
