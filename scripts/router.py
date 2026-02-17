@@ -387,6 +387,12 @@ class FridayRouter:
         return {
             "params": params,
             "recommendation": recommendation,
+            "executionContract": {
+                "must_delegate": True,
+                "required_action": "sessions_spawn",
+                "self_execution_forbidden": True,
+                "meta_only_exception": True,
+            },
         }
 
 
@@ -532,7 +538,17 @@ def main():
                     print(f"   {config_patch_result['message']}\n")
                     print(f"   Recommended patch: {config_patch_result['recommended_config_patch']}")
             elif args.json:
-                print(json.dumps({"parallel": True, "spawns": results, "count": len(results)}))
+                print(json.dumps({
+                    "parallel": True,
+                    "spawns": results,
+                    "count": len(results),
+                    "executionContract": {
+                        "must_delegate": True,
+                        "required_action": "sessions_spawn",
+                        "self_execution_forbidden": True,
+                        "meta_only_exception": True,
+                    },
+                }))
             else:
                 print(f"📋 Parallel tasks ({len(results)}):\n")
                 for i, r in enumerate(results, 1):
@@ -557,6 +573,12 @@ def main():
                 if args.json:
                     out = {k: v for k, v in spawn_result["params"].items()}
                     out["recommendation"] = spawn_result["recommendation"]
+                    out["executionContract"] = spawn_result.get("executionContract", {
+                        "must_delegate": True,
+                        "required_action": "sessions_spawn",
+                        "self_execution_forbidden": True,
+                        "meta_only_exception": True,
+                    })
                     print(json.dumps(out))
                 else:
                     print(f"📋 Task: {task_str}")

@@ -2,14 +2,14 @@
 name: agent-swarm
 displayName: Agent Swarm | OpenClaw Skill
 description: LLM routing and subagent delegation for OpenClaw. Routes each task to the right model (code, creative, research) and spawns subagents so you save tokens and get better results. Supports parallel tasks—one message can spawn multiple subagents at once (spawn --json --multi).
-version: 1.7.0
+version: 1.7.1
 ---
 
 # Agent Swarm | OpenClaw Skill
 
 **LLM routing and subagent delegation.** Routes each task to the right model, spawns subagents, and saves tokens. **Parallel tasks:** one message can spawn multiple subagents at once (e.g. "fix the bug and write a poem" → code + creative in parallel); use `spawn --json --multi "<message>"` to get an array of spawn params.
 
-**v1.7.0 — Security-focused release.** COMPLEX tier, absolute paths. Tested and working with OpenClaw TUI delegation. **Removed gateway auth secret exposure and gateway management for improved security.**
+**v1.7.1 — Delegation enforcement release.** COMPLEX tier, absolute paths. Tested and working with OpenClaw TUI delegation. **Removed gateway auth secret exposure and gateway management for improved security.**
 
 Agent Swarm analyzes your tasks and directs them to the best LLM—GLM 4.7 for code, Kimi k2.5 for creative, Grok Fast for research. Eliminate guesswork; route with purpose.
 
@@ -56,6 +56,23 @@ When you are the **main agent** (Gemini 2.5 Flash), you **classify** the user re
 **Output hygiene:** Never return internal orchestration metadata to the user (no session keys/IDs, transcript paths, runtime/token stats, or internal "summarize this" instructions). Forward only clean user-facing content.
 
 **Exception:** Meta-questions ("what model are you?", "how does routing work?") you answer yourself.
+
+## Delegation compliance gate (mandatory)
+
+Before sending any user-facing answer for a **task request**, run this mental gate:
+
+1. Did I run `router.py spawn --json` for this request?
+2. Did I call `sessions_spawn(...)` with the router's exact model?
+3. Did `sessions_spawn` return successfully in this same turn?
+
+If any answer is **No**, you must **not** answer the task. Return only a delegation failure + fix steps.
+
+**Forbidden behavior (explicit):**
+- Getting router recommendation and then replying with your own content.
+- Running `classify` and answering directly.
+- Skipping `sessions_spawn` because the task seems simple.
+
+This skill is invalid if task output is produced without a successful `sessions_spawn` result.
 
 **Security note:** This skill does NOT expose gateway auth secrets (tokens/passwords) in its output. Gateway management functionality has been removed. Use the separate `gateway-guard` skill if gateway auth management is needed.
 
