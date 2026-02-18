@@ -3,6 +3,12 @@
 Agent Swarm | OpenClaw Skill — Task-to-LLM routing for OpenClaw
 Version 1.7.5
 
+Orchestrator/router logic aligned with working friday-router backup:
+  ~/Desktop/backup .openclaw/workspace/skills/friday-router
+- Classification: same keyword sets, vision override, agentic bump, website→CREATIVE,
+  COMPLEX→CODE/QUALITY, COMPLEX+FAST handling. CREATIVE tier canonicalized to
+  openrouter/moonshotai/kimi-k2.5 (Kimi = Moonshot AI; never Minimax).
+
 Security improvements (v1.7.3+):
 - Input validation for task strings (length limits, null bytes, suspicious patterns)
 - Config patch validation (whitelist approach - only tools.exec.host/node)
@@ -32,6 +38,7 @@ import math
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 # OpenClaw imports (if available)
@@ -143,6 +150,26 @@ def validate_config_patch(patch_json_str):
     return patch
 
 
+def _log_delegation_audit(task: str, tier: str, model_id: str, recommendation: dict):
+    """Append one JSONL line to OPENCLAW_HOME/logs/agent-swarm-delegations.jsonl for audit."""
+    openclaw_home = os.environ.get("OPENCLAW_HOME") or os.path.expanduser("~/.openclaw")
+    log_dir = Path(openclaw_home) / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "agent-swarm-delegations.jsonl"
+    try:
+        entry = {
+            "ts": time.time(),
+            "task": task[:500] if task else "",
+            "tier": tier,
+            "model": model_id,
+            "reasoning": (recommendation or {}).get("reasoning", ""),
+        }
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
 def get_current_openclaw_config():
     """Read tools.exec.host and tools.exec.node from openclaw.json (no gateway auth)."""
     openclaw_home = os.environ.get("OPENCLAW_HOME") or os.path.expanduser("~/.openclaw")
@@ -159,6 +186,15 @@ def get_current_openclaw_config():
         "tools_exec_host": exec_config.get("host", "sandbox"),
         "tools_exec_node": exec_config.get("node"),
     }
+
+
+# Canonical model IDs per tier (fixes legacy friday-router wrong id: CREATIVE must be Moonshot Kimi, not Minimax)
+# If config or any path returns e.g. openrouter/minimax/kimi-k2.5 for CREATIVE, we override to this.
+TIER_CANONICAL_MODEL_ID = {
+    "CREATIVE": "openrouter/moonshotai/kimi-k2.5",   # Kimi is Moonshot AI; never use minimax for Kimi
+    "RESEARCH": "openrouter/x-ai/grok-4.1-fast",
+    "VISION": "openrouter/openai/gpt-4o",
+}
 
 
 class FridayRouter:
@@ -361,8 +397,12 @@ class FridayRouter:
         routing_rules = self.config.get('routing_rules', {})
         tier_rules = routing_rules.get(tier, {})
         
-        # Get primary model
+        # Get primary model id; enforce canonical id for critical tiers (e.g. CREATIVE = Moonshot Kimi, not Minimax)
         primary_id = tier_rules.get('primary')
+        if tier in TIER_CANONICAL_MODEL_ID:
+            canonical_id = TIER_CANONICAL_MODEL_ID[tier]
+            if primary_id != canonical_id:
+                primary_id = canonical_id
         
         # Find model in config
         model = None
@@ -750,6 +790,13 @@ def main():
                     print(f"   {config_patch_result['message']}\n")
                     print(f"   Recommended patch: {config_patch_result['recommended_config_patch']}")
             elif args.json:
+                for r in results:
+                    _log_delegation_audit(
+                        task=r.get("task", ""),
+                        tier="",
+                        model_id=r.get("model", ""),
+                        recommendation={"reasoning": "parallel"},
+                    )
                 print(json.dumps({
                     "parallel": True,
                     "spawns": results,
@@ -806,6 +853,14 @@ def main():
                     print(f"   Recommended patch: {spawn_result['recommended_config_patch']}")
                     print("   Then retry spawn after gateway restarts if needed.")
             else:
+                rec = spawn_result.get("recommendation", {})
+                if args.json:
+                    _log_delegation_audit(
+                        task=task_str,
+                        tier=rec.get("tier", ""),
+                        model_id=spawn_result["params"].get("model", ""),
+                        recommendation=rec,
+                    )
                 if args.json:
                     out = {k: v for k, v in spawn_result["params"].items()}
                     out["recommendation"] = spawn_result["recommendation"]

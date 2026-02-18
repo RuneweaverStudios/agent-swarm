@@ -162,6 +162,7 @@
     },
     "CREATIVE": {
       "primary": "openrouter/moonshotai/kimi-k2.5",
+      "_comment": "Kimi is Moonshot AI (moonshotai). Do not use openrouter/minimax/* for CREATIVE.",
       "fallback": [],
       "keywords": ["creative", "write", "story", "design", "UI", "UX", "frontend", "website", "style", "artistic"]
     },
