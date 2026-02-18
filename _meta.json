@@ -1,25 +1,10 @@
 {
-  "ownerId": "kn74sc8m1khsy0rfa1vdgg8dzx813t0t",
-  "slug": "agent-swarm",
-  "displayName": "Agent Swarm | OpenClaw Skill",
+  "schema": "openclaw.skill.v1",
+  "name": "agent-swarm",
   "version": "1.7.7",
-  "publishedAt": 1771236743674,
-  "requires": {
-    "env": [],
-    "optionalEnv": ["OPENCLAW_HOME"],
-    "platform": {
-      "openclaw": {
-        "config": {
-          "openrouter_api_key": "Required: OpenRouter API key must be configured in OpenClaw platform settings",
-          "openclaw_json": "Reads only tools.exec.host and tools.exec.node from openclaw.json ($OPENCLAW_HOME/openclaw.json or ~/.openclaw/openclaw.json). No other fields or secrets are read. Before installing, verify you are comfortable granting read access to this file."
-        }
-      }
-    }
-  },
-  "fileAccess": {
-    "read": [
-      "openclaw.json (tools.exec.host and tools.exec.node only; see requires.platform.openclaw.config.openclaw_json)"
-    ],
-    "write": []
-  }
+  "displayName": "Agent Swarm | OpenClaw Skill",
+  "description": "IMPORTANT: OpenRouter is required. Routes tasks to the right model and always delegates work through sessions_spawn.",
+  "author": "Austin",
+  "tags": ["routing", "orchestration", "subagents", "openrouter", "openclaw"],
+  "platform": "openclaw"
 }
