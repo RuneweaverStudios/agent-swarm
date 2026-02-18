@@ -148,14 +148,56 @@ python scripts/router.py classify "your task description"
 
 ## Default agents (edit in config.json)
 
-All defaults are in **`config.json`**. Edit these two places to change which model runs for each tier:
+All defaults are in **`config.json`** (skill root, parent of `scripts/`). Change the orchestrator or any task-specific model by editing:
 
 | What to edit | Key in config.json | Purpose |
 |--------------|--------------------|---------|
 | Session default / orchestrator | `default_model` | Model for new sessions and the main agent |
-| Per-tier primary | `routing_rules.<TIER>.primary` | Model used when a task matches that tier (FAST, CODE, CREATIVE, etc.) |
+| Per-tier primary | `routing_rules.<TIER>.primary` | Model used when a task matches that tier |
 
-Example: to make CODE use a different model, edit `routing_rules.CODE.primary`. Fallbacks are in `routing_rules.<TIER>.fallback`. The router loads this file from the skill root (parent of `scripts/`).
+### How to change all task-specific models
+
+Each tier has a primary (and optional fallback) model. Edit the **primary** to change which model runs for that task type:
+
+| Tier | Key | Example primary (default) |
+|------|-----|---------------------------|
+| **FAST** | `routing_rules.FAST.primary` | `openrouter/google/gemini-2.5-flash` |
+| **REASONING** | `routing_rules.REASONING.primary` | `openrouter/z-ai/glm-5` |
+| **CREATIVE** | `routing_rules.CREATIVE.primary` | `openrouter/moonshotai/kimi-k2.5` |
+| **RESEARCH** | `routing_rules.RESEARCH.primary` | `openrouter/x-ai/grok-4.1-fast` |
+| **CODE** | `routing_rules.CODE.primary` | `openrouter/z-ai/glm-4.7-flash` |
+| **QUALITY** | `routing_rules.QUALITY.primary` | `openrouter/z-ai/glm-4.7-flash` |
+| **COMPLEX** | `routing_rules.COMPLEX.primary` | `openrouter/z-ai/glm-4.7-flash` |
+| **VISION** | `routing_rules.VISION.primary` | `openrouter/openai/gpt-4o` |
+
+Fallbacks: `routing_rules.<TIER>.fallback` is an array of model IDs to try if the primary fails. Model IDs must start with `openrouter/` (see the `models` array in `config.json` for the full list).
+
+### Simple config examples
+
+**1. Change only the orchestrator (who delegates):**
+```json
+"default_model": "openrouter/google/gemini-2.5-flash"
+```
+
+**2. Change one tier (e.g. CODE to MiniMax):**
+In `config.json`, under `routing_rules.CODE`:
+```json
+"CODE": {
+  "primary": "openrouter/minimax/minimax-m2.5",
+  "fallback": ["openrouter/qwen/qwen3-coder-flash"]
+}
+```
+
+**3. Change several tiers at once:**  
+Edit the corresponding `routing_rules.<TIER>.primary` (and optionally `.fallback`) for FAST, CREATIVE, CODE, etc. Example snippet:
+```json
+"routing_rules": {
+  "FAST":      { "primary": "openrouter/google/gemini-2.5-flash", "fallback": ["openrouter/google/gemini-2.5-flash-lite"] },
+  "CREATIVE":  { "primary": "openrouter/moonshotai/kimi-k2.5", "fallback": [] },
+  "CODE":      { "primary": "openrouter/z-ai/glm-4.7-flash", "fallback": ["openrouter/minimax/minimax-m2.5"] }
+}
+```
+Keep the rest of your existing `routing_rules`; only the tiers you list here need to be present in this snippet if you're pasting into the full file.
 
 ---
 

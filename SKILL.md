@@ -105,11 +105,60 @@ Do not do the task yourself.
 
 ## Config basics
 
-Edit `config.json` to change routing:
+Edit `config.json` in the skill root (parent of `scripts/`) to change routing.
 
-- `default_model` = orchestrator default
-- `routing_rules.<TIER>.primary` = main model for tier
-- `routing_rules.<TIER>.fallback` = backups
+### What you can change
+
+| What | Key | Purpose |
+|------|-----|--------|
+| Orchestrator / session default | `default_model` | Main agent and new sessions (e.g. Gemini 2.5 Flash) |
+| Task-specific model per tier | `routing_rules.<TIER>.primary` | Model used when a task matches that tier |
+| Backup models if primary fails | `routing_rules.<TIER>.fallback` | Array of model IDs to try next |
+
+### All task-specific tiers (change the model for each)
+
+| Tier | Key to change primary | Typical use |
+|------|------------------------|-------------|
+| **FAST** | `routing_rules.FAST.primary` | Simple tasks: check, list, status, fetch |
+| **REASONING** | `routing_rules.REASONING.primary` | Logic, math, step-by-step analysis |
+| **CREATIVE** | `routing_rules.CREATIVE.primary` | Writing, stories, UI/UX, design |
+| **RESEARCH** | `routing_rules.RESEARCH.primary` | Research, search, fact-finding |
+| **CODE** | `routing_rules.CODE.primary` | Code, debug, refactor, implement |
+| **QUALITY** | `routing_rules.QUALITY.primary` | Complex/architecture tasks |
+| **COMPLEX** | `routing_rules.COMPLEX.primary` | Multi-step / complex system tasks |
+| **VISION** | `routing_rules.VISION.primary` | Image analysis, screenshots, visual |
+
+To change **all** task-specific models: edit each `routing_rules.<TIER>.primary` above. Use model IDs from the `models` array in `config.json` (must start with `openrouter/`).
+
+### Simple config examples
+
+**Orchestrator only (keep defaults for tiers):**
+```json
+{
+  "default_model": "openrouter/google/gemini-2.5-flash"
+}
+```
+(Other keys like `routing_rules` and `models` can stay as in the shipped `config.json`.)
+
+**Change one tier (e.g. CODE to MiniMax):**
+```json
+"routing_rules": {
+  "CODE": {
+    "primary": "openrouter/minimax/minimax-m2.5",
+    "fallback": ["openrouter/qwen/qwen3-coder-flash"]
+  }
+}
+```
+
+**Change multiple tiers (primaries only):**
+```json
+"routing_rules": {
+  "CREATIVE": { "primary": "openrouter/moonshotai/kimi-k2.5", "fallback": [] },
+  "CODE":     { "primary": "openrouter/z-ai/glm-4.7-flash", "fallback": ["openrouter/minimax/minimax-m2.5"] },
+  "RESEARCH": { "primary": "openrouter/x-ai/grok-4.1-fast", "fallback": [] }
+}
+```
+Only include tiers you want to override; the rest are read from the full `config.json`.
 
 
 ## Security
