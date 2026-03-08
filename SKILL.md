@@ -2,7 +2,7 @@
 name: agent-swarm
 displayName: Agent Swarm | OpenClaw Skill
 description: IMPORTANT: OpenRouter is required. Routes tasks to the right model and always delegates work through sessions_spawn. Rejects prompt-injection patterns in task strings (v1.7.6+).
-version: 1.7.8
+version: 1.8.0
 ---
 
 # Agent Swarm | OpenClaw Skill
@@ -124,7 +124,6 @@ Edit `config.json` in the skill root (parent of `scripts/`) to change routing.
 | **RESEARCH** | `routing_rules.RESEARCH.primary` | Research, search, fact-finding |
 | **CODE** | `routing_rules.CODE.primary` | Code, debug, refactor, implement |
 | **QUALITY** | `routing_rules.QUALITY.primary` | Complex/architecture tasks |
-| **COMPLEX** | `routing_rules.COMPLEX.primary` | Multi-step / complex system tasks |
 | **VISION** | `routing_rules.VISION.primary` | Image analysis, screenshots, visual |
 
 To change **all** task-specific models: edit each `routing_rules.<TIER>.primary` above. Use model IDs from the `models` array in `config.json` (must start with `openrouter/`).

@@ -287,8 +287,24 @@ TIER_CANONICAL_MODEL_ID = {
 }
 
 
-class FridayRouter:
-    """Austin's intelligent model router with fixed scoring."""
+class AgentSwarmRouter:
+    """
+    Agent Swarm Router -- Intelligent task-to-LLM routing for OpenClaw.
+
+    Classifies user tasks by keyword matching and weighted scoring, then
+    selects the best model from config.json routing_rules.  Supports
+    parallel task splitting, cost estimation, and OpenClaw sessions_spawn
+    integration.
+
+    Sections:
+      - Keyword constants: SIMPLE_KEYWORDS, COMPLEX_KEYWORDS, etc.
+      - __init__ / _load_config: Configuration loading
+      - classify_task: Core tier classification with weighted scoring
+      - recommend_model / get_default_model: Model selection helpers
+      - estimate_cost: Per-task cost estimation
+      - split_into_tasks: Multi-task message splitting
+      - spawn_agent: OpenClaw sessions_spawn parameter builder
+    """
     
     # Simple indicators that suggest SIMPLE/Fast tasks (NOT inverted anymore)
     SIMPLE_KEYWORDS = [
@@ -739,7 +755,7 @@ def main():
     if not getattr(args, "json", False):
         print(CLI_HEADER)
 
-    router = FridayRouter()
+    router = AgentSwarmRouter()
 
     task_str = ' '.join(args.task) if 'task' in args and args.task else ""
 
@@ -873,7 +889,7 @@ def main():
         if getattr(args, 'multi', False):
             # Parallel tasks: split message, spawn each, output array
             try:
-                tasks = FridayRouter.split_into_tasks(task_str)
+                tasks = AgentSwarmRouter.split_into_tasks(task_str)
             except ValueError as e:
                 error_msg = f"❌ Error splitting tasks: {str(e)}"
                 if args.json:
@@ -1029,6 +1045,10 @@ def main():
     else:
         print(f"Unknown command: {args.command}", file=sys.stderr)
         sys.exit(1)
+
+
+# Backward compatibility alias
+FridayRouter = AgentSwarmRouter
 
 
 if __name__ == '__main__':

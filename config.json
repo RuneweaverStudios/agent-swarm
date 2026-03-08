@@ -355,21 +355,6 @@
         "thorough"
       ]
     },
-    "COMPLEX": {
-      "primary": "openrouter/z-ai/glm-4.7-flash",
-      "fallback": [
-        "openrouter/z-ai/glm-4.7",
-        "openrouter/anthropic/claude-sonnet-4",
-        "openrouter/anthropic/claude-3.5-sonnet",
-        "openrouter/openai/gpt-4o"
-      ],
-      "keywords": [
-        "complex",
-        "architecture",
-        "design",
-        "system"
-      ]
-    },
     "VISION": {
       "primary": "openrouter/openai/gpt-4o",
       "fallback": [],

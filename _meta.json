@@ -1,1 +1,52 @@
-{"schema":"openclaw.skill.v1","name":"agent-swarm","version":"1.7.8","displayName":"Agent Swarm | OpenClaw Skill","description":"IMPORTANT: OpenRouter is required. Routes tasks to the right model and always delegates work through sessions_spawn. Rejects prompt-injection patterns in task strings (v1.7.6+).","author":"Austin","tags":["routing","orchestration","subagents","openrouter","openclaw"],"platform":"openclaw"}
+{
+  "schema": "openclaw.skill.v1",
+  "name": "agent-swarm",
+  "version": "1.8.0",
+  "displayName": "Agent Swarm | OpenClaw Skill",
+  "description": "Intelligent LLM routing and subagent delegation for OpenClaw. Routes each task to the optimal model by tier (FAST, REASONING, CREATIVE, RESEARCH, CODE, QUALITY, VISION), spawns subagents via sessions_spawn, and reduces API costs. Supports parallel multi-task splitting. Rejects prompt-injection patterns in task strings.",
+  "author": "Austin",
+  "license": "MIT",
+  "homepage": "https://github.com/RuneweaverStudios/agent-swarm",
+  "tags": [
+    "routing",
+    "orchestration",
+    "subagents",
+    "openrouter",
+    "openclaw",
+    "llm-routing",
+    "cost-optimization",
+    "parallel-tasks",
+    "prompt-injection-protection"
+  ],
+  "platform": "openclaw",
+  "requires": {
+    "python": ">=3.8",
+    "optionalEnv": [
+      "OPENCLAW_HOME"
+    ],
+    "platform": {
+      "openclaw": {
+        "config": {
+          "openrouter_api_key": "Required: OpenRouter API key must be configured in OpenClaw platform settings",
+          "openclaw_json": "Reads tools.exec.host and tools.exec.node from openclaw.json (located via OPENCLAW_HOME or ~/.openclaw/openclaw.json)"
+        }
+      }
+    }
+  },
+  "fileAccess": {
+    "read": [
+      "openclaw.json (tools.exec.host and tools.exec.node only)"
+    ],
+    "write": []
+  },
+  "commands": {
+    "default": "Show the default orchestrator model",
+    "classify": "Classify a task into a routing tier",
+    "spawn": "Generate sessions_spawn parameters for a task",
+    "models": "List all configured models",
+    "check-models": "Validate model IDs against OpenRouter",
+    "score": "Show detailed scoring breakdown",
+    "cost": "Estimate API cost for a task"
+  },
+  "tiers": ["FAST", "REASONING", "CREATIVE", "RESEARCH", "CODE", "QUALITY", "VISION"]
+}

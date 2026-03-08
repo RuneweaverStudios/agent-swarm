@@ -143,7 +143,7 @@ python scripts/router.py classify "your task description"
 
 - **Orchestrator** — Gemini 2.5 Flash delegates to tier-specific sub-agents via `sessions_spawn`
 - **Parallel tasks** — `spawn --json --multi "task A and task B"` splits on *and* / *then* / *;* and returns an array of spawn params; orchestrator can spawn all and run them in parallel
-- 7 tiers: FAST, REASONING, CREATIVE, RESEARCH, CODE, QUALITY, VISION
+- 7 tiers: FAST, REASONING, CREATIVE, RESEARCH, CODE, QUALITY, VISION (COMPLEX removed in v1.8.0, merged into QUALITY)
 - All models via OpenRouter (single API key)
 - Config-driven: `config.json` for models and routing rules
 - **Security-focused** — No gateway auth secret exposure, no process management, input validation, config patch whitelisting
@@ -171,7 +171,6 @@ Each tier has a primary (and optional fallback) model. Edit the **primary** to c
 | **RESEARCH** | `routing_rules.RESEARCH.primary` | `openrouter/x-ai/grok-4.1-fast` |
 | **CODE** | `routing_rules.CODE.primary` | `openrouter/z-ai/glm-4.7-flash` |
 | **QUALITY** | `routing_rules.QUALITY.primary` | `openrouter/z-ai/glm-4.7-flash` |
-| **COMPLEX** | `routing_rules.COMPLEX.primary` | `openrouter/z-ai/glm-4.7-flash` |
 | **VISION** | `routing_rules.VISION.primary` | `openrouter/openai/gpt-4o` |
 
 Fallbacks: `routing_rules.<TIER>.fallback` is an array of model IDs to try if the primary fails. Model IDs must start with `openrouter/` (see the `models` array in `config.json` for the full list).
@@ -248,9 +247,9 @@ python scripts/router.py check-models --fix                # Fix config with cor
 ## In-code usage
 
 ```python
-from scripts.router import FridayRouter
+from scripts.router import AgentSwarmRouter
 
-router = FridayRouter()
+router = AgentSwarmRouter()
 
 default = router.get_default_model()
 tier = router.classify_task("check server status")        # → "FAST"
@@ -282,81 +281,7 @@ cost = router.estimate_cost("design landing page")         # → {tier, model, c
 
 ## Changelog
 
-### v1.7.8 (Workspace / prompt-injection rejection)
-
-- **Prompt-injection mitigation**: Router now **rejects** (raises `ValueError`) task strings containing `<script>`, `javascript:`, or event-handler patterns (e.g. `onclick=`). Addresses code-insights warning; no longer delegates this protection solely to downstream LLMs. Skill synced to workspace at `workspace/skills/agent-swarm`.
-
-### v1.7.7 (Security warnings / trust alignment)
-
-**Credentials and trust:**
-- **OPENCLAW_HOME**: Explicit everywhere that it is optional (not required). `_meta.json` lists it in `optionalEnv` only; platform config states unset defaults to `~/.openclaw`. SKILL.md and README state "not required" and reference metadata.
-- **openclaw.json**: Platform config and docs now ask installers to verify they are comfortable granting read access; clarified that only `tools.exec.host` and `tools.exec.node` are used. SKILL.md "Before installing" and README requirements updated.
-
-**Safe execution:**
-- Commands/CLI sections in SKILL.md and README explicitly state that bash examples are for manual/CLI use only and that programmatic use must use subprocess with list arguments (no shell interpolation).
-
-### v1.7.6 (VirusTotal / trust review fixes)
-
-**Metadata and documentation alignment:**
-- **OPENCLAW_HOME**: Declared optional in `_meta.json` (`optionalEnv`) to match SKILL.md and README; removed from required `env` list. Defaults to `~/.openclaw` when unset.
-- **Safe execution**: SKILL.md and README now show subprocess-with-list-args as the primary way to invoke the router from code; CLI examples with quoted user message are labeled for manual/CLI use only to reduce command-injection risk from operator error.
-
-### v1.7.5 (Credential declarations)
-
-**Metadata and documentation improvements:**
-- Declared required vs optional env and platform config in `_meta.json`; OPENCLAW_HOME later clarified as optional in v1.7.6
-- Added `requires.platform.openclaw.config` declarations for OpenRouter API key and openclaw.json access
-- Added `fileAccess` section in `_meta.json` documenting read/write access
-- Enhanced requirements documentation in SKILL.md and README.md
-- Explicitly documented that only `tools.exec.host` and `tools.exec.node` are accessed from openclaw.json
-- Clarified that OpenRouter API key must be configured in OpenClaw platform (not provided by skill)
-
-**Technical changes:**
-- Updated `_meta.json` version to 1.7.5
-- Added comprehensive requirements section to SKILL.md
-- Enhanced file access documentation with security guarantees
-
-### v1.7.4 (Security clarification)
-
-**Documentation improvements:**
-- Clarified "saves tokens" phrase to explicitly mean API cost savings (not token storage)
-- Replaced hard-coded absolute paths (`/Users/ghost/...`) with relative paths in examples
-- Added explicit documentation about file access scope (only `tools.exec.*` from `openclaw.json`)
-- Clarified that router does not persist, upload, or transmit tokens or credentials
-
-**Technical changes:**
-- Updated config.json description to remove ambiguous "saves tokens" phrase
-- Updated SKILL.md examples to use relative paths with `OPENCLAW_HOME` guidance
-
-### v1.7.3 (Security hardening)
-
-**Security improvements:**
-- **Input validation**: Added comprehensive validation for task strings (length limits, null byte detection, suspicious pattern detection)
-- **Config patch validation**: Whitelist-based validation for `recommended_config_patch` - only allows modifications to `tools.exec.host` and `tools.exec.node`
-- **Label validation**: Added validation for label parameters
-- **Documentation**: Added security section with safe execution practices and injection prevention guidance
-
-**Technical changes:**
-- Added `validate_task_string()` function for input sanitization
-- Added `validate_config_patch()` function for config patch whitelisting
-- Updated `spawn_agent()`, `classify_task()`, and `split_into_tasks()` to validate inputs
-- Enhanced error messages for invalid inputs
-
-### v1.7.0 (Security-focused release)
-
-**Removed functionality (for improved security rating):**
-- **Gateway guard integration** — Removed `gateway_watchdog.py` and gateway auth management functionality. Use the separate [gateway-guard](https://clawhub.ai/skills/gateway-guard) skill for gateway auth checking and management.
-- **Gateway auth secret exposure** — Removed `get_openclaw_gateway_config()` function that exposed gateway tokens/passwords in router output. Router spawn output no longer includes `gatewayToken`, `gatewayPassword`, `gatewayAuthMode`, or `gatewayPort`.
-- **FACEPALM troubleshooting integration** — Removed troubleshooting loop detection and automatic FACEPALM invocation. Use the separate [FACEPALM](https://github.com/RuneweaverStudios/FACEPALM) skill if intelligent troubleshooting is needed.
-
-**Security improvements:**
-- Router now only handles model routing with no credential exposure
-- No process management capabilities (no gateway restart/kill operations)
-- Clean separation of concerns: routing vs. gateway management vs. troubleshooting
-
-**Migration:**
-- If you need gateway auth management: `clawhub install gateway-guard`
-- If you need troubleshooting: Install [FACEPALM](https://github.com/RuneweaverStudios/FACEPALM) separately
+See [CHANGELOG.md](CHANGELOG.md) for full version history.
 
 ---
 
