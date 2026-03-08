@@ -48,5 +48,14 @@
     "score": "Show detailed scoring breakdown",
     "cost": "Estimate API cost for a task"
   },
-  "tiers": ["FAST", "REASONING", "CREATIVE", "RESEARCH", "CODE", "QUALITY", "VISION"]
+  "tiers": [
+    "FAST",
+    "REASONING",
+    "CREATIVE",
+    "RESEARCH",
+    "CODE",
+    "QUALITY",
+    "VISION"
+  ],
+  "main": "scripts/router.py"
 }
